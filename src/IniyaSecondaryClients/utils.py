@@ -1,0 +1,55 @@
+import os
+import uuid
+
+def to_camel_case(data):
+    if isinstance(data, dict):
+        return {
+            snake_to_camel(k): to_camel_case(v)
+            for k, v in data.items()
+        }
+    elif isinstance(data, list):
+        return [to_camel_case(i) for i in data]
+    return data
+
+
+def snake_to_camel(s):
+    parts = s.split('_')
+    return parts[0] + ''.join(word.capitalize() for word in parts[1:])
+
+def get_device_id():
+    DEVICE_PATH = os.path.expanduser("~/.iniya/device_id")
+    with open(DEVICE_PATH, 'r') as f:
+        devid = f.read()
+    return devid
+
+def _check_cuda():
+    import torch
+
+    if not torch.cuda.is_available():
+        raise RuntimeError(
+            "This package requires a CUDA GPU (cu130 build). CPU is not supported."
+        )
+
+def install_requirements():
+    import subprocess
+    import sys
+    import os
+
+    req_path = os.path.join(os.path.dirname(__file__), "requirements.txt")
+
+    if not os.path.exists(req_path):
+        raise FileNotFoundError("requirements.txt not found")
+
+    print("[Iniya] Installing dependencies...")
+
+    subprocess.check_call([
+        sys.executable, "-m", "pip", "install",
+        "--upgrade", "pip"
+    ])
+
+    subprocess.check_call([
+        sys.executable, "-m", "pip", "install",
+        "-r", req_path
+    ])
+
+    print("[Iniya] Installation complete.")
