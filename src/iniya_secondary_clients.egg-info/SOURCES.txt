@@ -7,6 +7,7 @@ src/IniyaSecondaryClients/Auth.py
 src/IniyaSecondaryClients/Client.py
 src/IniyaSecondaryClients/DeviceProfile.py
 src/IniyaSecondaryClients/SearchMixin.py
+src/IniyaSecondaryClients/Setup.py
 src/IniyaSecondaryClients/Viz3DMixin.py
 src/IniyaSecondaryClients/__init__.py
 src/IniyaSecondaryClients/connectMixin.py

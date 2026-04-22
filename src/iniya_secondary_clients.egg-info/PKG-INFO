@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: iniya-secondary-clients
-Version: 0.1.1
+Version: 0.1.2
 Summary: Client utilities for Iniya system
 Author: night_games_20
 License-Expression: MIT
@@ -15,6 +15,10 @@ Dynamic: license-file
 ## Iniya-Secondary-Clients
 
 This package Contains all the Secondary clients that are used by Project-Iniya for its working 
+
+### Setup
+
+- Installing the Package only from PIP/PyPI will not work. At First Run `IniyaSecondaryClients.Setup.install_requirements()` must be executed to install all teh required Packages
 
 ### Auth
 

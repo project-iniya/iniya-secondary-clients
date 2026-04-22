@@ -5,6 +5,10 @@
 
 This package Contains all the Secondary clients that are used by Project-Iniya for its working 
 
+### Setup
+
+- Installing the Package only from PIP/PyPI will not work. At First Run `IniyaSecondaryClients.Setup.install_requirements()` must be executed to install all teh required Packages
+
 ### Auth
 
 - This is used to Authentiate to the app using oauth providers like google, github which is required for searchclient/ConnectClient(in-dev)

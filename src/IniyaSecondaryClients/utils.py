@@ -29,27 +29,3 @@ def _check_cuda():
         raise RuntimeError(
             "This package requires a CUDA GPU (cu130 build). CPU is not supported."
         )
-
-def install_requirements():
-    import subprocess
-    import sys
-    import os
-
-    req_path = os.path.join(os.path.dirname(__file__), "requirements.txt")
-
-    if not os.path.exists(req_path):
-        raise FileNotFoundError("requirements.txt not found")
-
-    print("[Iniya] Installing dependencies...")
-
-    subprocess.check_call([
-        sys.executable, "-m", "pip", "install",
-        "--upgrade", "pip"
-    ])
-
-    subprocess.check_call([
-        sys.executable, "-m", "pip", "install",
-        "-r", req_path
-    ])
-
-    print("[Iniya] Installation complete.")
