@@ -60,4 +60,9 @@ def install_requirements():
         "-r", req_path
     ])
 
+    from .Client import VizualizerClient , AudioClient, SearchClient
+    VizualizerClient()
+    AudioClient()
+    SearchClient()
+
     print("[Iniya] Installation complete.")

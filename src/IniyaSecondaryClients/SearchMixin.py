@@ -70,19 +70,19 @@ class SearchMixin:
     
     def initializeToken(self):
         try:
-          devid = get_device_id()
-          if devid :
-            token = keyring.get_password("IniyaAI", devid)
-            if verify_token(token):
-                self.token = token
+            devid = get_device_id()
+            if devid:
+                token = keyring.get_password("IniyaAI", devid)
+                if verify_token(token):
+                    self.token = token
+                    return   # ✅ stop here when valid
+                else:
+                    logout()
+                    raise Exception("Invalid Token, Logging Out")
             else:
-                logout()
-                raise Exception("Invalid Token, Logging Out")
-          else:
-              raise Exception("DEV ID Not Found")
+                raise Exception("DEV ID Not Found")
         except Exception as e:
             print(e)
-        finally:
             self.token = None
 
 # Tavily-like function

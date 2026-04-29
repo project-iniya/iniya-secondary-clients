@@ -8,8 +8,8 @@ class SearchClient(SearchMixin):
         self.setup_search_client(base_url)
 
 class AudioClient(AudioMixin):
-    def __init__(self):
-        self.profile = get_profile()
+    def __init__(self,verbose : bool = False):
+        self.profile = get_profile(verbose=verbose)
         ensure_models(self.profile)
         self.setup_speech()
 

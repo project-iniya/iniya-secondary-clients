@@ -48,8 +48,273 @@ os.environ["HUGGINGFACE_HUB_CACHE"] = str(MODELS_DIR / "hub")
 os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "0"
 os.environ["TRANSFORMERS_OFFLINE"] = "0"
 os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
-os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 
+viewer_html = """
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>Iniya 3D Viewer</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#1a1a2e;color:#e0e0ff;font-family:system-ui,sans-serif;display:flex;flex-direction:column;height:100vh}
+  #top{padding:10px 14px;display:flex;gap:8px;align-items:center;background:#16213e;border-bottom:1px solid #0f3460}
+  #prompt{flex:1;padding:8px 12px;background:#0f3460;color:#e0e0ff;border:1px solid #533483;border-radius:6px;font-size:14px;outline:none}
+  #prompt:focus{border-color:#e94560}
+  #btn{padding:8px 18px;background:#e94560;border:none;color:#fff;border-radius:6px;cursor:pointer;font-size:14px}
+  #btn:disabled{background:#533483;cursor:not-allowed}
+  #btn:hover:not(:disabled){background:#ff6b81}
+  #engine-badge{padding:4px 10px;border-radius:12px;font-size:11px;background:#0f3460;color:#74b9ff;border:1px solid #533483}
+  #status{font-size:12px;color:#888;min-width:130px}
+  #canvas-wrap{flex:1;position:relative}
+  canvas{display:block}
+  #controls-panel{position:absolute;top:10px;right:10px;display:flex;flex-direction:column;gap:6px}
+  .ctrl-btn{padding:5px 12px;border-radius:6px;border:1px solid #0f3460;background:#16213ecc;color:#aaa;font-size:11px;cursor:pointer;transition:all .15s}
+  .ctrl-btn.active{background:#e94560;border-color:#e94560;color:#fff}
+  .ctrl-btn:hover:not(.active){background:#0f3460;color:#fff}
+  #history{position:absolute;bottom:10px;left:10px;background:#16213ecc;border:1px solid #0f3460;border-radius:8px;padding:8px;max-width:200px;max-height:180px;overflow-y:auto}
+  #history h4{font-size:10px;color:#555;margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em}
+  .hist-item{font-size:12px;color:#888;padding:3px 6px;cursor:pointer;border-radius:4px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hist-item:hover{background:#0f3460;color:#e0e0ff}
+  #info{position:absolute;bottom:10px;right:10px;font-size:10px;color:#444}
+</style>
+</head>
+<body>
+<div id="top">
+  <input id="prompt" type="text" placeholder="describe a 3D object..."/>
+  <button id="btn">Generate</button>
+  <span id="engine-badge">loading...</span>
+  <span id="status"></span>
+</div>
+<div id="canvas-wrap">
+  <div id="controls-panel">
+    <div class="ctrl-btn active" data-mode="solid">◈ Solid</div>
+    <div class="ctrl-btn"        data-mode="wire">⬡ Wire</div>
+    <div class="ctrl-btn"        data-mode="both">◉ Both</div>
+    <div class="ctrl-btn"        id="rotate-btn">↻ Rotate</div>
+  </div>
+  <div id="history"><h4>History</h4><div id="hist-list"></div></div>
+  <div id="info">scroll · drag · right-drag to pan</div>
+</div>
+ 
+<script type="importmap">
+{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import {GLTFLoader}      from 'three/addons/loaders/GLTFLoader.js';
+import {OrbitControls}   from 'three/addons/controls/OrbitControls.js';
+import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
+ 
+const wrap     = document.getElementById('canvas-wrap');
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
+renderer.toneMapping       = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+wrap.appendChild(renderer.domElement);
+ 
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1a1a2e);
+scene.fog = new THREE.Fog(0x1a1a2e, 20, 60);
+ 
+// environment map — gives PBR materials realistic reflections for free
+const pmrem  = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+ 
+const camera = new THREE.PerspectiveCamera(50, 1, 0.01, 1000);
+camera.position.set(5, 4, 5);
+ 
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping   = true;
+controls.dampingFactor   = 0.06;
+controls.autoRotate      = false;
+controls.autoRotateSpeed = 1.2;
+controls.minDistance     = 0.5;
+controls.maxDistance     = 50;
+ 
+// 3-point lighting
+const key = new THREE.DirectionalLight(0xfff5e0, 2.5);
+key.position.set(6, 10, 6);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.left = key.shadow.camera.bottom = -8;
+key.shadow.camera.right = key.shadow.camera.top   =  8;
+key.shadow.bias = -0.001;
+scene.add(key);
+const fill = new THREE.DirectionalLight(0xc0d8ff, 0.8);
+fill.position.set(-6, 4, -6);
+scene.add(fill);
+const rim = new THREE.DirectionalLight(0xffe0a0, 0.6);
+rim.position.set(0, 6, -8);
+scene.add(rim);
+scene.add(new THREE.AmbientLight(0x404060, 0.4));
+ 
+// ground
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(30, 30),
+  new THREE.MeshStandardMaterial({color:0x111128, roughness:0.9, metalness:0.0})
+);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+scene.add(new THREE.GridHelper(30, 60, 0x0f3460, 0x0a1a30));
+ 
+// model state
+let currentGroup = null;
+let wireOverlay  = null;
+let viewMode     = 'solid';
+ 
+function clearScene(){
+  if(currentGroup){ scene.remove(currentGroup); currentGroup = null; }
+  if(wireOverlay) { scene.remove(wireOverlay);  wireOverlay  = null; }
+}
+ 
+function applyMode(){
+  if(!currentGroup) return;
+  currentGroup.traverse(n => {
+    if(!n.isMesh) return;
+    n.material.wireframe = (viewMode === 'wire');
+    n.visible = true;
+  });
+  if(wireOverlay) wireOverlay.visible = (viewMode === 'both');
+}
+ 
+const loader = new GLTFLoader();
+ 
+function loadModel(url){
+  document.getElementById('status').textContent = 'Loading...';
+  clearScene();
+  loader.load(url, gltf => {
+    currentGroup = gltf.scene;
+    currentGroup.traverse(n => {
+      if(!n.isMesh) return;
+      n.castShadow    = true;
+      n.receiveShadow = true;
+      // keep Blender-exported PBR materials, just boost env map
+      if(n.material && n.material.isMeshStandardMaterial){
+        n.material.envMapIntensity = 1.2;
+        n.material.needsUpdate     = true;
+      } else {
+        n.material = new THREE.MeshStandardMaterial({
+          color:0xdddddd, roughness:0.4, metalness:0.1, envMapIntensity:1.2
+        });
+      }
+    });
+ 
+    // wire overlay for "both" mode
+    const wg = new THREE.Group();
+    currentGroup.traverse(n => {
+      if(!n.isMesh) return;
+      const wm = new THREE.Mesh(
+        n.geometry,
+        new THREE.MeshBasicMaterial({color:0x6688ff, wireframe:true, transparent:true, opacity:0.12})
+      );
+      wm.applyMatrix4(n.matrixWorld);
+      wg.add(wm);
+    });
+    wireOverlay = wg;
+ 
+    // centre + fit camera
+    const box    = new THREE.Box3().setFromObject(currentGroup);
+    const size   = box.getSize(new THREE.Vector3()).length();
+    const center = box.getCenter(new THREE.Vector3());
+    currentGroup.position.sub(center);
+    currentGroup.position.y += box.getSize(new THREE.Vector3()).y / 2;
+    wireOverlay.position.copy(currentGroup.position);
+ 
+    scene.add(currentGroup);
+    scene.add(wireOverlay);
+    applyMode();
+ 
+    camera.position.setLength(size * 2.0);
+    controls.target.set(0, size * 0.25, 0);
+    controls.update();
+    controls.autoRotate = true;
+    setTimeout(() => controls.autoRotate = false, 5000);
+    document.getElementById('status').textContent = '✓ ready';
+  }, undefined, e => {
+    document.getElementById('status').textContent = '✗ load failed';
+    console.error(e);
+  });
+}
+ 
+// mode buttons
+document.querySelectorAll('.ctrl-btn[data-mode]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.ctrl-btn[data-mode]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    viewMode = btn.dataset.mode;
+    applyMode();
+  });
+});
+ 
+const rotBtn = document.getElementById('rotate-btn');
+rotBtn.addEventListener('click', () => {
+  controls.autoRotate = !controls.autoRotate;
+  rotBtn.classList.toggle('active', controls.autoRotate);
+});
+ 
+// generate
+const histList = document.getElementById('hist-list');
+const history  = [];
+ 
+function addHistory(prompt, url){
+  history.unshift({prompt, url});
+  histList.innerHTML = '';
+  history.slice(0, 8).forEach(h => {
+    const d = document.createElement('div');
+    d.className = 'hist-item'; d.title = h.prompt; d.textContent = h.prompt;
+    d.onclick = () => loadModel(h.url + '?t=' + Date.now());
+    histList.appendChild(d);
+  });
+}
+ 
+async function generate(){
+  const prompt = document.getElementById('prompt').value.trim();
+  if(!prompt) return;
+  const btn = document.getElementById('btn');
+  btn.disabled = true;
+  document.getElementById('status').textContent = 'Generating...';
+  try {
+    const res  = await fetch('/generate', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({prompt})});
+    const data = await res.json();
+    if(data.error){ document.getElementById('status').textContent = '✗ ' + data.error; return; }
+    loadModel(data.model_url + '?t=' + Date.now());
+    addHistory(prompt, data.model_url);
+  } catch(e){
+    document.getElementById('status').textContent = '✗ server error';
+  } finally { btn.disabled = false; }
+}
+ 
+document.getElementById('btn').addEventListener('click', generate);
+document.getElementById('prompt').addEventListener('keydown', e => { if(e.key==='Enter') generate(); });
+fetch('/info').then(r=>r.json()).then(d => { document.getElementById('engine-badge').textContent = d.engine; });
+ 
+(function animate(){
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+})();
+ 
+function resize(){
+  const w = wrap.clientWidth, h = wrap.clientHeight;
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(wrap);
+resize();
+</script>
+</body>
+</html>
+"""
+if not (STATIC_DIR / "viewer.html").exists():
+    (STATIC_DIR / "viewer.html").write_text(viewer_html, encoding="utf-8")
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Mixin
