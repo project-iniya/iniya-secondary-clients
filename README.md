@@ -147,7 +147,7 @@ This package Contains all the Secondary clients that are used by Project-Iniya f
   ```
   from IniyaSecondaryClient.Client import VizualizerClient
 
-  # VizualizerClient(
+  # VizualizerClient.setupVizualizer(
       start_server: bool = True,
       engine: Optional[Literal["blenderllm", "shap-e", "auto"]] = "auto",
       blender_path: Optional[str] = None,
@@ -159,6 +159,7 @@ This package Contains all the Secondary clients that are used by Project-Iniya f
   # blender path is autodected if not provided otherwise the provided path is used for creating the glb files using blender
 
   vizClient = VizualizerClient()
+  vizClient.setupVizualizer()
   ```
   ![Text](https://i.ibb.co/NnS3tp4c/IMG-20260422-131223.png)
 

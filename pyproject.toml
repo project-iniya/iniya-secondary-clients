@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "iniya-secondary-clients"
-version = "0.2.2"
+version = "0.2.3"
 description = "Client utilities for Iniya system"
 readme = "README.md"
 authors = [{ name="night_games_20" }]
