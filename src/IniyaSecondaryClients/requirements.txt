@@ -28,6 +28,7 @@ rich==15.0.0
 typer==0.24.1
 psutil==7.2.2
 keyring==25.7.0
+blobfile==3.2.0
 
 # --- Web (if needed) ---
 Flask==3.1.3

@@ -3,23 +3,6 @@ device_profile.py — Iniya hardware profiler + auto-downloader
 Windows only. Detects hardware, picks the right STT/TTS tier,
 and auto-downloads any missing models/binaries.
 
-Folder layout (all relative to this file's parent — no hardcoding):
-    <project_root>/
-        device_profile.py       ← this file
-        models/
-            vosk/
-                vosk-model-small-en-us-0.15/
-            piper/
-                bin/
-                    piper.exe
-                voices/
-                    en_US-ryan-low.onnx
-                    en_US-ryan-low.onnx.json
-            whisper/            ← faster-whisper download_root
-                tiny.en/
-                base.en/
-                small.en/
-
 Override the models folder via env var (optional):
     set INIYA_MODELS_DIR=D:\\MyModels
 

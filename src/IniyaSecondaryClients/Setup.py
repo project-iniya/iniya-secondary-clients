@@ -29,6 +29,7 @@ rich==15.0.0
 typer==0.24.1
 psutil==7.2.2
 keyring==25.7.0
+blobfile==3.2.0
 
 # --- Web (if needed) ---
 Flask==3.1.3
@@ -68,3 +69,7 @@ def install_requirements():
     AudioClient()
 
     print("[Iniya] Installation complete.")
+
+
+if __name__ == "__main__":
+    install_requirements()
