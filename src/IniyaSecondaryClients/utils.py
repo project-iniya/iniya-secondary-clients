@@ -26,6 +26,5 @@ def _check_cuda():
     import torch
 
     if not torch.cuda.is_available():
-        raise RuntimeError(
-            "This package requires a CUDA GPU (cu130 build). CPU is not supported."
-        )
+        return False
+    return True

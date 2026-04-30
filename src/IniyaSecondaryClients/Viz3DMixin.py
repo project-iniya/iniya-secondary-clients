@@ -31,8 +31,6 @@ from .utils import _check_cuda
 #  Paths
 # ─────────────────────────────────────────────────────────────────────────────
 
-_check_cuda()  # fail early if no CUDA GPU is available
-
 THIS_DIR    = Path(__file__).resolve().parent
 STATIC_DIR  = THIS_DIR / "viz_static"
 MODELS_DIR  = THIS_DIR / "models" / "viz"
@@ -339,6 +337,23 @@ class Viz3DMixin:
             blenderllm_model: HuggingFace model id or local path
             use_4bit:         load BlenderLLM in 4-bit (fits 8GB VRAM). set False for better quality
         """
+            # CUDA check
+        if not _check_cuda():
+            print(
+                "[3D] WARNING: CUDA not available. "
+                "3D generation features are disabled."
+            )
+
+            self._viz_engine        = None
+            self._blender_exe       = None
+            self._blenderllm_pipe   = None
+            self._shap_e_models     = None
+            self._viz_server        = None
+            self._viz_server_thread = None
+
+            return
+
+
         self._viz_engine       = None
         self._blender_exe      = None
         self._blenderllm_pipe  = None
@@ -392,13 +407,63 @@ class Viz3DMixin:
         print("[3D] Blender not found. Install from https://www.blender.org/download/")
         return None
 
-    def _load_blenderllm(self, model_id: str, use_4bit: bool) -> None:
-        print(f"[3D] Loading BlenderLLM ({model_id}) {'4-bit' if use_4bit else 'full'}...")
+    # ─────────────────────────────────────────────────────────────────────
+    # BlenderLLM download / load
+    # ─────────────────────────────────────────────────────────────────────
+
+    def _is_blenderllm_downloaded(self, model_id: str) -> bool:
+        model_dir = MODELS_DIR / "hub"
+        return model_dir.exists() and any(model_dir.iterdir())
+
+
+    def download_blenderllm(self, model_id: str) -> None:
+        if self._is_blenderllm_downloaded(model_id):
+            print("[3D] BlenderLLM already downloaded.")
+            return
+
+        print(f"[3D] Downloading BlenderLLM ({model_id})...")
+
         try:
-            from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
+            from huggingface_hub import snapshot_download
+
+            snapshot_download(
+                repo_id=model_id,
+                cache_dir=str(MODELS_DIR / "hub"),
+                local_files_only=False,
+            )
+
+            print("[3D] BlenderLLM download complete.")
+
+        except Exception as e:
+            print(f"[3D] BlenderLLM download failed: {e}")
+            raise
+
+
+    def _load_blenderllm(self, model_id: str, use_4bit: bool) -> None:
+
+        if getattr(self, "_blenderllm_model", None) is not None:
+            print("[3D] BlenderLLM already loaded.")
+            self._viz_engine = "blenderllm"
+            return
+
+        self.download_blenderllm(model_id)
+
+        print(f"[3D] Loading BlenderLLM ({model_id})...")
+
+        try:
+            from transformers import (
+                AutoTokenizer,
+                AutoModelForCausalLM,
+                BitsAndBytesConfig,
+            )
+
             import torch
 
-            tokenizer = AutoTokenizer.from_pretrained(model_id, cache_dir=str(MODELS_DIR / "hub"))
+            tokenizer = AutoTokenizer.from_pretrained(
+                model_id,
+                cache_dir=str(MODELS_DIR / "hub"),
+                local_files_only=True,
+            )
 
             if use_4bit:
                 bnb_config = BitsAndBytesConfig(
@@ -407,58 +472,134 @@ class Viz3DMixin:
                     bnb_4bit_use_double_quant=True,
                     bnb_4bit_quant_type="nf4",
                 )
+
                 model = AutoModelForCausalLM.from_pretrained(
                     model_id,
                     quantization_config=bnb_config,
                     device_map="auto",
                     cache_dir=str(MODELS_DIR / "hub"),
+                    local_files_only=True,
                 )
+
             else:
                 model = AutoModelForCausalLM.from_pretrained(
                     model_id,
                     torch_dtype=torch.float16,
                     device_map="auto",
                     cache_dir=str(MODELS_DIR / "hub"),
+                    local_files_only=True,
                 )
 
             self._blenderllm_tokenizer = tokenizer
-            self._blenderllm_model     = model
+            self._blenderllm_model = model
+            self._viz_engine = "blenderllm"
+
             print("[3D] BlenderLLM ready.")
+
         except Exception as e:
             print(f"[3D] BlenderLLM load failed: {e}")
-            print("[3D] Falling back to shap-e")
+            print("[3D] Falling back to Shap-E engine.")
             self._viz_engine = "shap-e"
+            self._blenderllm_tokenizer = None
+            self._blenderllm_model = None
             self._load_shap_e()
+            raise
+
+    # ─────────────────────────────────────────────────────────────────────
+    # Shap-E download / load
+    # ─────────────────────────────────────────────────────────────────────
+
+    def _is_shap_e_downloaded(self) -> bool:
+        model_dir = MODELS_DIR / "shap_e"
+        return model_dir.exists() and any(model_dir.iterdir())
+
+
+    def download_shap_e(self) -> None:
+
+        if self._is_shap_e_downloaded():
+            print("[3D] Shap-E already downloaded.")
+            return
+
+        print("[3D] Downloading Shap-E models...")
+
+        try:
+            import sys
+
+            shap_e_parent = str(THIS_DIR)
+
+            if shap_e_parent not in sys.path:
+                sys.path.insert(0, shap_e_parent)
+
+            from IniyaSecondaryClients.shap_e.models.download import (
+                load_model,
+            )
+
+            import torch
+
+            device = torch.device("cpu")
+
+            # force HF cache population
+            load_model("transmitter", device=device)
+            load_model("text300M", device=device)
+
+            (MODELS_DIR / "shap_e").mkdir(exist_ok=True)
+
+            print("[3D] Shap-E download complete.")
+
+        except Exception as e:
+            print(f"[3D] Shap-E download failed: {e}")
+            raise
+
 
     def _load_shap_e(self) -> None:
+
+        if self._shap_e_models is not None:
+            print("[3D] Shap-E already loaded.")
+            self._viz_engine = "shap-e"
+            return
+
+        self.download_shap_e()
+
         print("[3D] Loading Shap-E...")
+
         try:
             import sys
             import torch
 
-            # add the directory containing the shap_e folder to sys.path
             shap_e_parent = str(THIS_DIR)
+
             if shap_e_parent not in sys.path:
                 sys.path.insert(0, shap_e_parent)
 
-            from IniyaSecondaryClients.shap_e.diffusion.sample import sample_latents
-            from IniyaSecondaryClients.shap_e.diffusion.gaussian_diffusion import diffusion_from_config
-            from IniyaSecondaryClients.shap_e.models.download import load_model, load_config
+            from IniyaSecondaryClients.shap_e.diffusion.gaussian_diffusion import (
+                diffusion_from_config,
+            )
 
-            device    = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            xm        = load_model("transmitter", device=device)
-            model     = load_model("text300M",    device=device)
+            from IniyaSecondaryClients.shap_e.models.download import (
+                load_model,
+                load_config,
+            )
+
+            device = torch.device("cuda")
+
+            xm = load_model("transmitter", device=device)
+            model = load_model("text300M", device=device)
             diffusion = diffusion_from_config(load_config("diffusion"))
 
             self._shap_e_models = {
-                "device":    device,
-                "xm":        xm,
-                "model":     model,
+                "device": device,
+                "xm": xm,
+                "model": model,
                 "diffusion": diffusion,
             }
+
+            self._viz_engine = "shap-e"
+
             print(f"[3D] Shap-E ready on {device}.")
+
         except Exception as e:
             print(f"[3D] Shap-E load failed: {e}")
+            raise
 
     # ─────────────────────────────────────────────────────────────────────────
     #  Generate

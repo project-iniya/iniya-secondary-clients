@@ -14,7 +14,7 @@ class AudioClient(AudioMixin):
         self.setup_speech()
 
 class VizualizerClient(Viz3DMixin):
-    def __init__(self, start_server: bool = True, **kwargs):
+    def setup_vizualizer(self, start_server: bool = True, **kwargs):
         self.setup_3d(**kwargs)
         if start_server:
             self.serve_viewer()

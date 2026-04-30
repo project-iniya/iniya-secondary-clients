@@ -2,6 +2,7 @@ requirements = '''
 # --- Core ML ---
 torch==2.11.0+cu130
 torchvision==0.26.0+cu130
+torchaudio==2.11.0+cu130
 --extra-index-url https://download.pytorch.org/whl/cu130
 
 # --- HuggingFace / ML ---
@@ -60,9 +61,10 @@ def install_requirements():
         "-r", req_path
     ])
 
-    from .Client import VizualizerClient , AudioClient, SearchClient
-    VizualizerClient()
+    from .Client import VizualizerClient , AudioClient
+    viz = VizualizerClient()
+    viz.download_blenderllm()
+    viz.download_shap_e()
     AudioClient()
-    SearchClient()
 
     print("[Iniya] Installation complete.")
