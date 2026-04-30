@@ -416,7 +416,7 @@ class Viz3DMixin:
         return model_dir.exists() and any(model_dir.iterdir())
 
 
-    def download_blenderllm(self, model_id: str) -> None:
+    def download_blenderllm(self, model_id: str = "FreedomIntelligence/BlenderLLM") -> None:
         if self._is_blenderllm_downloaded(model_id):
             print("[3D] BlenderLLM already downloaded.")
             return
@@ -439,7 +439,7 @@ class Viz3DMixin:
             raise
 
 
-    def _load_blenderllm(self, model_id: str, use_4bit: bool) -> None:
+    def _load_blenderllm(self, model_id: str = "FreedomIntelligence/BlenderLLM", use_4bit: bool = False) -> None:
 
         if getattr(self, "_blenderllm_model", None) is not None:
             print("[3D] BlenderLLM already loaded.")
