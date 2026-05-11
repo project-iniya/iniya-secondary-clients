@@ -1,6 +1,9 @@
 # PROJECT-INIYA
 ---
 
+## ARCHIVED
+This part has direcly been added to the main app rather than being a sub part needing to be downloaded separately.
+
 ## Iniya-Secondary-Clients
 
 This package Contains all the Secondary clients that are used by Project-Iniya for its working 
